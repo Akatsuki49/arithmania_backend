@@ -3,6 +3,7 @@
 .env
 
 # Python virtual environment
+arith_venv/
 venv/
 env/
 
