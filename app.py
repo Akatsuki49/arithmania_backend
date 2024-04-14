@@ -88,13 +88,13 @@ def query():
         classification = "personal budgeting"
         if classification == "investment":
             response = requests.post(
-                'https://e9ac-104-28-220-172.ngrok-free.app/investments', data=data)
+                'https://b825-104-28-252-172.ngrok-free.app/investments', data=data)
         elif classification == "personal budgeting":
             response = requests.post(
-                'https://e9ac-104-28-220-172.ngrok-free.app/personal_budgeting', data=data)
+                'https://localhost:8080/personal_budgeting', data=data)
         elif classification == "financial education":
             response = requests.post(
-                'https://e9ac-104-28-220-172.ngrok-free.app/financial_education', data=data)
+                'https://b825-104-28-252-172.ngrok-free.app/financial_education', data=data)
         else:
             return jsonify({'error': 'Invalid classification'})
 
@@ -126,7 +126,7 @@ def personal_budgeting():
         vector_store_path = user_folder
 
         result = query_llm(vector_store_path, question)
-        return jsonify({'question': question, 'message': result, 'user_id': user_id})
+        return jsonify({'question': question, 'message': result, 'user_id': user_id}), 200
 
     except Exception as e:
         return jsonify({'error': f"An error occurred: {str(e)}"}), 500
