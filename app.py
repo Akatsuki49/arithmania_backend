@@ -27,8 +27,9 @@ def update_transactions():
             return jsonify({'error': 'user_id is required'}), 400
 
         user_folder = os.path.join(folder_name, user_id)
-        os.makedirs(user_folder, exist_ok=True)
+        # os.makedirs(user_folder, exist_ok=True)
         vector_store_path = os.path.join(user_folder)
+        print(vector_store_path)
 
         amount = request.form.get('amount')
         if amount is None:
@@ -54,6 +55,7 @@ def update_transactions():
                 texts=[transaction_text], embedding=embed)
             vector_store.save_local(vector_store_path)
         else:
+            print("here")
             vector_store = FAISS.load_local(
                 vector_store_path, embeddings=embed, allow_dangerous_deserialization=True)
             vector_store.add_texts([transaction_text], embeddings=[embedding])
