@@ -18,7 +18,7 @@ def classify_question(question):
     text = question
     
     # Labels for classification
-    classes_verbalized = ["investment", "personal budgeting", "financial education"]
+    classes_verbalized = ["stock market", "personal budgeting", "financial education"]
     
     # Perform classification
     output = zeroshot_classifier(text, classes_verbalized, multi_label=False)
@@ -31,7 +31,3 @@ def classify_question(question):
 
 
 
-# Example usage
-text = "Angela Merkel is a politician in Germany and leader of the CDU"
-classification_result = classify_question(text)
-print(classification_result)
