@@ -78,58 +78,47 @@ def query():
         if question is None:
             return jsonify({'error': 'question is required'}), 400
 
-        # Prepare the data to be sent in the request body
-        data = {
-            'user_id': user_id,
-            'question': question
-        }
-
         # Make a POST request to the desired endpoint based on classification
         classification = "personal budgeting"
         if classification == "investment":
-            response = requests.post(
-                'https://b825-104-28-252-172.ngrok-free.app/investments', data=data)
+            response = invest(user_id, question)
         elif classification == "personal budgeting":
-            response = requests.post(
-                'https://localhost:8080/personal_budgeting', data=data)
+            response = personal_budgeting(user_id, question)
         elif classification == "financial education":
-            response = requests.post(
-                'https://b825-104-28-252-172.ngrok-free.app/financial_education', data=data)
+            response = financial_education(user_id, question)
         else:
             return jsonify({'error': 'Invalid classification'})
 
         # Process the response as needed
-        if response.status_code == 200:
-            return jsonify({'message': 'Transaction added successfully'}), 200
+        # print(response)
+        if response['status_code'] == 200:
+            return jsonify({'message': 'Successful', 'response': response['message']}), 200
         else:
-            return jsonify({'error': 'Failed to add transaction'}), 500
+            return jsonify({'error': 'Failure'}), 500
 
     except Exception as e:
         return jsonify({'error': f"An error occurred: {str(e)}"}), 500
 
 
-@app.route('/investments')
-def investments():
-    question = request.args.get('question', '')
+# @app.route('/investments')
+def investments(user_id, question):
     return jsonify({'question': question, 'message': 'Investments route'})
 
 
-@app.route('/personal_budgeting', methods=['POST'])
-def personal_budgeting():
+# @app.route('/personal_budgeting', methods=['POST'])
+def personal_budgeting(user_id, question):
     try:
-        user_id = request.form.get('user_id')
-        question = request.form.get('question')
         if not question or not user_id:
-            return jsonify({'error': 'question and user_id are required'}), 400
+            return {'error': 'question and user_id are required', 'status_code': 200}
 
         user_folder = os.path.join(folder_name, user_id)
         vector_store_path = user_folder
 
         result = query_llm(vector_store_path, question)
-        return jsonify({'question': question, 'message': result, 'user_id': user_id}), 200
+        return {'question': question, 'message': result, 'user_id': user_id, 'status_code': 200}
 
     except Exception as e:
-        return jsonify({'error': f"An error occurred: {str(e)}"}), 500
+        return {'error': f"An error occurred: {str(e)}", 'status_code': 500}
 
 
 def query_llm(vector_store_path, question):
@@ -149,10 +138,8 @@ def query_llm(vector_store_path, question):
     return result
 
 
-@app.route('/financial_education')
-def financial_education():
-    question = request.args.get('question', '')
-
+# @app.route('/financial_education')
+def financial_education(user_id, question):
     try:
         prompt = f"Given this message explain in a simple and understandable way: {question}"
 
@@ -168,12 +155,12 @@ def financial_education():
 
         if response and response.choices:
             generated_text = response.choices[0].message.content
-            return jsonify({'question': question, 'message': generated_text})
+            return {'question': question, 'message': generated_text}
         else:
-            return jsonify({'error': 'No response from the model'}), 500
+            return {'error': 'No response from the model', 'status_code': 500}
 
     except Exception as e:
-        return jsonify({'error': f"An error occurred: {str(e)}"}), 500
+        return {'error': f"An error occurred: {str(e)}", 'status_code': 500}
 
 
 if __name__ == '__main__':
