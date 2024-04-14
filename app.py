@@ -4,13 +4,11 @@ from langchain_community.vectorstores import FAISS
 from openai import OpenAI
 import os
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.text_splitter import CharacterTextSplitter
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
-
+import requests
+# from model_load import classify_question
 
 app = Flask(__name__)
 
@@ -18,40 +16,19 @@ app = Flask(__name__)
 API_KEY = "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"
 embed = OpenAIEmbeddings(openai_api_key=API_KEY)
 
-# Folder name to store FAISS index
 folder_name = "store"
 
-text_splitter = CharacterTextSplitter(
-    chunk_size = 512,
-    chunk_overlap  = 24,
-    length_function = len,
-    separator="\n"
-)
 
-chunks = text_splitter.split_text("Introduction to Finance")
-
-
-# Initialize the vector store path
-vector_store_path = os.path.join(folder_name, "vector_store.faiss")
-
-
-# Check if the vector store exists
-if not os.path.exists(vector_store_path):
-    # Initialize the vector store if it doesn't exist
-    vector_store = FAISS.from_texts(texts=chunks, embedding=embed)
-
-    # Save the vector store
-    vector_store.save_local(vector_store_path)
-else:
-    # Load the vector store if it exists
-    vector_store = FAISS.load_local(vector_store_path, embeddings=embed, allow_dangerous_deserialization=True)
 @app.route('/update_transactions', methods=['POST'])
 def update_transactions():
     try:
-        # Get transaction details from the request form data
         user_id = request.form.get('user_id')
         if user_id is None:
             return jsonify({'error': 'user_id is required'}), 400
+
+        user_folder = os.path.join(folder_name, user_id)
+        os.makedirs(user_folder, exist_ok=True)
+        vector_store_path = os.path.join(user_folder)
 
         amount = request.form.get('amount')
         if amount is None:
@@ -69,36 +46,66 @@ def update_transactions():
         if description is None:
             return jsonify({'error': 'description is required'}), 400
 
-        # Construct transaction text
         transaction_text = f"{amount} {transaction_type} {category} {description}"
-
-        # Generate embedding for the transaction text
         embedding = embed.embed_query(transaction_text)
 
-        # Update the vector store with the new embedding
-        vector_store.add_texts([transaction_text], embeddings=[embedding])
-
-        # Save the updated vector store
-        vector_store.save_local(vector_store_path)
+        if not os.path.exists(vector_store_path):
+            vector_store = FAISS.from_texts(
+                texts=[transaction_text], embedding=embed)
+            vector_store.save_local(vector_store_path)
+        else:
+            vector_store = FAISS.load_local(
+                vector_store_path, embeddings=embed, allow_dangerous_deserialization=True)
+            vector_store.add_texts([transaction_text], embeddings=[embedding])
+            vector_store.save_local(vector_store_path)
 
         return jsonify({'message': 'Transaction embeddings updated successfully'})
 
     except Exception as e:
         return jsonify({'error': f"An error occurred: {str(e)}"}), 500
+
+
 @app.route('/query', methods=['POST'])
 def query():
+    try:
+        user_id = request.form.get('user_id')
+        if user_id is None:
+            return jsonify({'error': 'user_id is required'}), 400
 
-    question = request.form['question']
-    user_id = request.form['user_id']
-    classification = "financial education"  # classify_question(question)
-    if classification == "investment":
-        return redirect(url_for('investments', question=question, user_id=user_id))
-    elif classification == "personal budgeting":
-        return redirect(url_for('personal_budgeting', question=question, user_id=user_id))
-    elif classification == "financial education":
-        return redirect(url_for('financial_education', question=question, user_id=user_id))
-    else:
-        return jsonify({'error': 'Invalid classification'})
+        question = request.form.get('question')
+        if question is None:
+            return jsonify({'error': 'question is required'}), 400
+
+        # Prepare the data to be sent in the request body
+        data = {
+            'user_id': user_id,
+            'question': question
+        }
+
+        # Make a POST request to the desired endpoint based on classification
+        classification = "personal budgeting"
+        if classification == "investment":
+            response = requests.post(
+                'https://e9ac-104-28-220-172.ngrok-free.app/investments', data=data)
+        elif classification == "personal budgeting":
+            response = requests.post(
+                'https://e9ac-104-28-220-172.ngrok-free.app/personal_budgeting', data=data)
+        elif classification == "financial education":
+            response = requests.post(
+                'https://e9ac-104-28-220-172.ngrok-free.app/financial_education', data=data)
+        else:
+            return jsonify({'error': 'Invalid classification'})
+
+        # Process the response as needed
+        if response.status_code == 200:
+            return jsonify({'message': 'Transaction added successfully'}), 200
+        else:
+            return jsonify({'error': 'Failed to add transaction'}), 500
+
+    except Exception as e:
+        return jsonify({'error': f"An error occurred: {str(e)}"}), 500
+
+
 @app.route('/investments')
 def investments():
     question = request.args.get('question', '')
@@ -107,35 +114,39 @@ def investments():
 
 @app.route('/personal_budgeting', methods=['POST'])
 def personal_budgeting():
-    question = request.form.get('question')
-    user_id = request.form.get('user_id')
-
-    if not question or not user_id:
-        return jsonify({'error': 'question and user_id are required'}), 400
-
     try:
-        # Call the query_llm function
-        response = query_llm(vector_store_path, question)
-        return jsonify({'question': question, 'message': response, 'user_id': user_id})
+        user_id = request.form.get('user_id')
+        question = request.form.get('question')
+        if not question or not user_id:
+            return jsonify({'error': 'question and user_id are required'}), 400
+
+        user_folder = os.path.join(folder_name, user_id)
+        vector_store_path = user_folder
+
+        result = query_llm(vector_store_path, question)
+        return jsonify({'question': question, 'message': result, 'user_id': user_id})
 
     except Exception as e:
         return jsonify({'error': f"An error occurred: {str(e)}"}), 500
 
-def query_llm(cid, quest):
+
+def query_llm(vector_store_path, question):
+    print(vector_store_path)
     embed1 = OpenAIEmbeddings(openai_api_key=API_KEY)
-    vs = FAISS.load_local(str(cid), embeddings=embed1, allow_dangerous_deserialization=True)
+    vs = FAISS.load_local(str(vector_store_path),
+                          embeddings=embed1, allow_dangerous_deserialization=True)
     llm = ChatOpenAI(openai_api_key=API_KEY)
-    memory = ConversationBufferMemory(memory_key='chat_history', return_messages=True)
+    memory = ConversationBufferMemory(
+        memory_key='chat_history', return_messages=True)
     conversation_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
         retriever=vs.as_retriever(),
         memory=memory
     )
-    result = conversation_chain({"question": str(quest)})['answer']
+    result = conversation_chain({"question": str(question)})['answer']
     return result
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=True)
+
 @app.route('/financial_education')
 def financial_education():
     question = request.args.get('question', '')
@@ -161,6 +172,7 @@ def financial_education():
 
     except Exception as e:
         return jsonify({'error': f"An error occurred: {str(e)}"}), 500
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=True)
