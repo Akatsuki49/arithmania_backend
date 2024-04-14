@@ -17,3 +17,6 @@ __pycache__/
 
 # Miscellaneous
 .DS_Store
+
+model1/
+model1-tokenizer/

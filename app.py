@@ -3,10 +3,12 @@ from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from openai import OpenAI
 import os
+from model_load import classify_question
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
+from investment_gen import answgen
 import requests
 # from model_load import classify_question
 
@@ -77,10 +79,10 @@ def query():
         question = request.form.get('question')
         if question is None:
             return jsonify({'error': 'question is required'}), 400
-
+        classification = classify_question(question)
         # Make a POST request to the desired endpoint based on classification
-        classification = "personal budgeting"
-        if classification == "investment":
+        # classification = "personal budgeting"
+        if classification == "stock market":
             response = invest(user_id, question)
         elif classification == "personal budgeting":
             response = personal_budgeting(user_id, question)
@@ -101,8 +103,9 @@ def query():
 
 
 # @app.route('/investments')
-def investments(user_id, question):
-    return jsonify({'question': question, 'message': 'Investments route'})
+def invest(user_id, question):
+    answer1 = answgen(question)
+    return jsonify({'question': question, 'message': answer1})
 
 
 # @app.route('/personal_budgeting', methods=['POST'])
