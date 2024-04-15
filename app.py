@@ -79,7 +79,10 @@ def query():
         question = request.form.get('question')
         if question is None:
             return jsonify({'error': 'question is required'}), 400
-        classification = classify_question(question)
+        # classification = classify_question(question)
+        # classification = "stock market"
+        # classification = "personal budgeting"
+        classification = "financial education"
         # Make a POST request to the desired endpoint based on classification
         # classification = "personal budgeting"
         if classification == "stock market":
@@ -105,7 +108,7 @@ def query():
 # @app.route('/investments')
 def invest(user_id, question):
     answer1 = answgen(question)
-    return jsonify({'question': question, 'message': answer1})
+    return {'question': question, 'message': answer1, 'status_code': 200}
 
 
 # @app.route('/personal_budgeting', methods=['POST'])
