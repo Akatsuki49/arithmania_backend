@@ -12,13 +12,16 @@ from langchain.chains.combine_documents.stuff import StuffDocumentsChain
 from langchain_community.vectorstores import FAISS
 warnings.filterwarnings("ignore")
 
-def answgen(question1):
-    OPENAI_API_KEY="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"
-    embedd = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
-    vectors = FAISS.load_local("admin",embedd,allow_dangerous_deserialization=True)
-    memory = ConversationBufferMemory(memory_key='chat_history', return_messages=True)
-    conversation_chain = ConversationalRetrievalChain.from_llm(llm = OpenAI(openai_api_key="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",temperature=0.0),retriever=vectors.as_retriever(),memory=memory)
-    question = f'{question1} given the question, answer it based on the database provided and analyze that database and give answer. You can also add on information if you feel something is missing in the database'
-    result = conversation_chain({"question":str(question)})['answer']
-    return result
 
+def answgen(question1):
+    OPENAI_API_KEY = "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"
+    embedd = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+    vectors = FAISS.load_local(
+        "admin", embedd, allow_dangerous_deserialization=True)
+    memory = ConversationBufferMemory(
+        memory_key='chat_history', return_messages=True)
+    conversation_chain = ConversationalRetrievalChain.from_llm(llm=OpenAI(
+        openai_api_key="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", temperature=0.0), retriever=vectors.as_retriever(), memory=memory)
+    question = f'{question1} given the question, answer it based on the database provided and analyze that database and give answer. You can also add on information if you feel something is missing in the database, if there is nothing in the database related generate an appropriate generate response and do not explicitly state that there is nothing in the database in response.'
+    result = conversation_chain({"question": str(question)})['answer']
+    return result
