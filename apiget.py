@@ -1,11 +1,12 @@
 import requests
 import pandas as pd
 import json
+import time
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
 current_date = datetime.now().date()
-access_token="eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1UUFNOFAiLCJqdGkiOiI2NjFiMWMzODc5ZTMxZTNjNmNlMmQ4NjciLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNBY3RpdmUiOnRydWUsInNjb3BlIjpbImludGVyYWN0aXZlIiwiaGlzdG9yaWNhbCJdLCJpYXQiOjE3MTMwNTI3MjgsImlzcyI6InVkYXBpLWdhdGV3YXktc2VydmljZSIsImV4cCI6MTcxMzEzMjAwMH0.0uWuMeegluQvYvkf-u3WEgFj30Zm0p_X510Hiuk9JPY"
+# access_token="eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1UUFNOFAiLCJqdGkiOiI2NjFiMWMzODc5ZTMxZTNjNmNlMmQ4NjciLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNBY3RpdmUiOnRydWUsInNjb3BlIjpbImludGVyYWN0aXZlIiwiaGlzdG9yaWNhbCJdLCJpYXQiOjE3MTMwNTI3MjgsImlzcyI6InVkYXBpLWdhdGV3YXktc2VydmljZSIsImV4cCI6MTcxMzEzMjAwMH0.0uWuMeegluQvYvkf-u3WEgFj30Zm0p_X510Hiuk9JPY"
 
 def minutewise(id):
     previous_date1 = current_date - timedelta(days=1)
@@ -75,8 +76,10 @@ def monthwise(id):
         return r1["data"]["candles"][0][2],r1["data"]["candles"][0][3]
     return "",""
 
-data = pd.read_csv("top100stocks.csv",index_col=0)
+data = pd.read_csv("stocks_raw.csv",index_col=0)
 for i in range(data.shape[0]):
+    if(i>0 and i%90==0):
+        time.sleep(120)
     x1 = str(data.at[i,'instrument_key'])
     x,y=monthwise(x1)
     a,b=weekly(x1)

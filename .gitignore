@@ -17,6 +17,6 @@ __pycache__/
 
 # Miscellaneous
 .DS_Store
-
+stocks_raw.csv
 model1/
 model1-tokenizer/
