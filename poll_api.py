@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 import json
 import time
+from langchain.document_loaders import CSVLoader
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from langchain_community.embeddings import OpenAIEmbeddings
@@ -98,7 +99,7 @@ def update_vector_store():
     embed = OpenAIEmbeddings(openai_api_key=API_KEY)
     vector_store_path = "admin"
 
-    data = pd.read_csv("stocks_raw.csv", index_col=0)
+    data = pd.read_csv("stocks_raw.csv", index_col=0,nrows=3)
     texts = []
 
     # Read the list of processed stocks from the file
@@ -108,7 +109,7 @@ def update_vector_store():
     except FileNotFoundError:
         processed_stocks = []
 
-    for i in range(200):
+    for i in range(3):
         
 
         x1 = str(data.at[i, 'instrument_key'])
@@ -134,18 +135,25 @@ def update_vector_store():
         # Add the stock to the processed list
         processed_stocks.append(x1)
 
-    data.to_csv("updated.csv", index=False)
+    data1 = data.drop(columns=['instrument_key'])
+    data1.to_csv("updated.csv", index=False)
+    print(texts)
 
     # Write the updated list of processed stocks to the file
     with open("processed_stocks.txt", "w") as file:
         file.write("\n".join(processed_stocks))
 
     if not os.path.exists(vector_store_path):
-        vector_store = FAISS.from_texts(texts=texts, embedding=embed)
-        vector_store.save_local(vector_store_path)
+        loader = CSVLoader(file_path='updated.csv',encoding='utf-8')
+        documents = loader.load()
+        vectors0 = FAISS.from_documents(documents, embed)
+        vectors0.save_local("admin")
         logging.info("New vector store created with updated stock data.")
     else:
         vector_store = FAISS.load_local(vector_store_path, embeddings=embed, allow_dangerous_deserialization=True)
-        vector_store.add_texts(texts)
+        # vector_store.add_texts(texts)
         vector_store.save_local(vector_store_path)
         logging.info("Existing vector store updated with new stock data.")
+
+
+update_vector_store()

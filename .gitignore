@@ -5,6 +5,7 @@
 # Python virtual environment
 arith_venv/
 venv/
+arith/
 env/
 
 # Python bytecode
