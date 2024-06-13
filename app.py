@@ -1,24 +1,37 @@
-from flask import Flask, request, jsonify, url_for, redirect
+from flask import Flask, request, jsonify
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from openai import OpenAI
 import os
-from model_load import classify_question
-from langchain.text_splitter import CharacterTextSplitter
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
-from investment_gen import answgen
-import requests
+import subprocess
+import time
+from apscheduler.schedulers.background import BackgroundScheduler
+import logging
+
+
 # from model_load import classify_question
 
 app = Flask(__name__)
 
 # Replace with your actual API key
-API_KEY = "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"
+API_KEY = "sk-proj-sFmN2dibkkuuUxxrAeDPT3BlbkFJhY7iwpaB5jZLJYDWoB1C"
 embed = OpenAIEmbeddings(openai_api_key=API_KEY)
 
 folder_name = "store"
+stock_folder_name = "admin"
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def update_stock_data():
+    try:
+        subprocess.run(["python", "poll_api.py"])
+        logging.info("Stock data updated successfully.")
+    except Exception as e:
+        logging.error(f"Error updating stock data: {str(e)}")
+
 
 
 @app.route('/update_transactions', methods=['POST'])
@@ -80,9 +93,9 @@ def query():
         if question is None:
             return jsonify({'error': 'question is required'}), 400
         # classification = classify_question(question)
-        # classification = "stock market"
+        classification = "stock market"
         # classification = "personal budgeting"
-        classification = "financial education"
+        # classification = "financial education"
         # Make a POST request to the desired endpoint based on classification
         # classification = "personal budgeting"
         if classification == "stock market":
@@ -106,10 +119,26 @@ def query():
 
 
 # @app.route('/investments')
-def invest(user_id, question):
-    answer1 = answgen(question)
-    return {'question': question, 'message': answer1, 'status_code': 200}
+# def invest(user_id, question):
+#     answer1 = answgen(question)
+#     return {'question': question, 'message': answer1, 'status_code': 200}
 
+def invest(user_id, question):
+    try:
+        vector_store_path = stock_folder_name
+        last_update_time = os.path.getmtime(vector_store_path)
+        current_time = time.time()
+        time_since_last_update = current_time - last_update_time
+
+        if time_since_last_update > 30:  # Update if it's been more than 30 seconds
+            update_stock_data()
+            logging.info("Stock data updated before serving the request.")
+
+        result = query_llm(vector_store_path, question)
+        return {'question': question, 'message': result, 'status_code': 200}
+    except Exception as e:
+        logging.error(f"Error occurred in invest function: {str(e)}")
+        return {'error': f"An error occurred: {str(e)}", 'status_code': 500}
 
 # @app.route('/personal_budgeting', methods=['POST'])
 def personal_budgeting(user_id, question):
@@ -161,13 +190,18 @@ def financial_education(user_id, question):
 
         if response and response.choices:
             generated_text = response.choices[0].message.content
-            return {'question': question, 'message': generated_text}
+            return {'question': question, 'message': generated_text, 'status_code': 200}
         else:
             return {'error': 'No response from the model', 'status_code': 500}
 
     except Exception as e:
         return {'error': f"An error occurred: {str(e)}", 'status_code': 500}
 
+def init_scheduler():
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(update_stock_data, 'interval', seconds=10)
+    scheduler.start()
 
 if __name__ == '__main__':
+    init_scheduler()
     app.run(host='0.0.0.0', port=8080, debug=True)
