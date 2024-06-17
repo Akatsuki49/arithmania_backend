@@ -247,7 +247,7 @@ def update_vector_store():
     embed = OpenAIEmbeddings(openai_api_key="sk-proj-sFmN2dibkkuuUxxrAeDPT3BlbkFJhY7iwpaB5jZLJYDWoB1C")
     vector_store_path = "admin"
 
-    data = pd.read_csv("stocks_raw.csv", index_col=0, nrows=10)
+    data = pd.read_csv("stocks_raw.csv", index_col=0, nrows=10)# ten stocks
     texts = []
 
     # Read the list of processed stocks from the file
