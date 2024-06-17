@@ -12,17 +12,18 @@ def minutewise(id):
     previous_date1 = current_date - timedelta(days=1)
     previous_date = previous_date1.strftime('%Y-%m-%d')
     url = f"https://api.upstox.com/v2/historical-candle/{id}/1minute/{current_date}"
-    headers = {'Accept': 'application/json'}
+    headers = {
+        'Accept': 'application/json'
+    }
     payload = {}
     print(url)
     response = requests.request("GET", url, headers=headers, data=payload)
     print(response.text)
     r1 = json.loads(response.text)
-    if r1.get("status") == "success" and r1.get("data", {}).get("candles"):
-        candles = r1["data"]["candles"]
-        if len(candles) != 0:
-            return candles[0][2], candles[0][3]
-    return "", ""
+    print(r1["data"]["candles"])
+    if len(r1["data"]["candles"])!=0:
+        return r1["data"]["candles"][0][2],r1["data"]["candles"][0][3]
+    return "",""
 
 def daywise(id):
     current_date1 = current_date - timedelta(days=1)
@@ -30,52 +31,55 @@ def daywise(id):
     previous_date1 = current_date1 - timedelta(days=2)
     previous_date = previous_date1.strftime('%Y-%m-%d')
     url = f"https://api.upstox.com/v2/historical-candle/{id}/day/{current_date2}/{previous_date}"
-    headers = {'Accept': 'application/json'}
+    headers = {
+        'Accept': 'application/json'
+    }
     payload = {}
     print(url)
     response = requests.request("GET", url, headers=headers, data=payload)
     print(response.text)
     r1 = json.loads(response.text)
-    if r1.get("status") == "success" and r1.get("data", {}).get("candles"):
-        candles = r1["data"]["candles"]
-        if len(candles) != 0:
-            return candles[0][2], candles[0][3]
-    return "", ""
+    print(r1["data"]["candles"])
+    if len(r1["data"]["candles"])!=0:
+        return r1["data"]["candles"][0][2],r1["data"]["candles"][0][3]
+    return "",""
 
 def weekly(id):
     previous_date1 = current_date - timedelta(days=7)
     previous_date = previous_date1.strftime('%Y-%m-%d')
     url = f"https://api.upstox.com/v2/historical-candle/{id}/week/{current_date}/{previous_date}"
-    headers = {'Accept': 'application/json'}
+    headers = {
+        'Accept': 'application/json'
+    }
     payload = {}
     print(url)
     response = requests.request("GET", url, headers=headers, data=payload)
     print(response.text)
     r1 = json.loads(response.text)
-    if r1.get("status") == "success" and r1.get("data", {}).get("candles"):
-        candles = r1["data"]["candles"]
-        if len(candles) != 0:
-            return candles[0][2], candles[0][3]
-    return "", ""
+    print(r1["data"]["candles"])
+    if len(r1["data"]["candles"])!=0:
+        return r1["data"]["candles"][0][2],r1["data"]["candles"][0][3]
+    return "",""
 
 def monthwise(id):
     previous_date1 = current_date - relativedelta(months=1)
     previous_date = previous_date1.strftime('%Y-%m-%d')
     url = f"https://api.upstox.com/v2/historical-candle/{id}/month/{current_date}/{previous_date}"
-    headers = {'Accept': 'application/json'}
+    headers = {
+        'Accept': 'application/json'
+    }
     payload = {}
     response = requests.request("GET", url, headers=headers, data=payload)
     r1 = json.loads(response.text)
-    if r1.get("status") == "success" and r1.get("data", {}).get("candles"):
-        candles = r1["data"]["candles"]
-        if len(candles) != 0:
-            return candles[0][2], candles[0][3]
-    return "", ""
+    print(r1["data"]["candles"])
+    if len(r1["data"]["candles"])!=0:
+        return r1["data"]["candles"][0][2],r1["data"]["candles"][0][3]
+    return "",""
 
 data = pd.read_csv("stocks_raw.csv",index_col=0)
 for i in range(data.shape[0]):
-    if(i>0 and i%90==0):
-        time.sleep(120)
+    # if(i>0 and i%90==0):
+    #     time.sleep(120)
     x1 = str(data.at[i,'instrument_key'])
     x,y=monthwise(x1)
     a,b=weekly(x1)

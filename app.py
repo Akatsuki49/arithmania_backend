@@ -130,9 +130,9 @@ def invest(user_id, question):
         current_time = time.time()
         time_since_last_update = current_time - last_update_time
 
-        if time_since_last_update > 30:  # Update if it's been more than 30 seconds
-            update_stock_data()
-            logging.info("Stock data updated before serving the request.")
+        # if time_since_last_update > 30:  # Update if it's been more than 30 seconds
+        #     update_stock_data()
+        #     logging.info("Stock data updated before serving the request.")
 
         result = query_llm(vector_store_path, question)
         return {'question': question, 'message': result, 'status_code': 200}
@@ -197,11 +197,11 @@ def financial_education(user_id, question):
     except Exception as e:
         return {'error': f"An error occurred: {str(e)}", 'status_code': 500}
 
-def init_scheduler():
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(update_stock_data, 'interval', seconds=10)
-    scheduler.start()
+# def init_scheduler():
+#     scheduler = BackgroundScheduler()
+#     scheduler.add_job(update_stock_data, 'interval', seconds=10)
+#     scheduler.start()
 
 if __name__ == '__main__':
-    init_scheduler()
+    # init_scheduler()
     app.run(host='0.0.0.0', port=8080, debug=True)
