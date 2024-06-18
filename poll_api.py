@@ -2,9 +2,11 @@ import requests
 import pandas as pd
 import json
 import time
-from langchain.document_loaders import CSVLoader
+import shutil
+from langchain.document_loaders import TextLoader
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
+from langchain.text_splitter import CharacterTextSplitter
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 import os
@@ -99,8 +101,9 @@ def update_vector_store():
     embed = OpenAIEmbeddings(openai_api_key=API_KEY)
     vector_store_path = "admin"
 
-    data = pd.read_csv("stocks_raw.csv", index_col=0,nrows=3)
+    data = pd.read_csv("stocks_raw.csv", index_col=0,nrows=50)
     texts = []
+    z1=[]
 
     # Read the list of processed stocks from the file
     try:
@@ -109,9 +112,8 @@ def update_vector_store():
     except FileNotFoundError:
         processed_stocks = []
 
-    for i in range(3):
+    for i in range(50):
         
-
         x1 = str(data.at[i, 'instrument_key'])
 
         # Check if the stock has already been processed
@@ -131,29 +133,41 @@ def update_vector_store():
 
         stock_text = f"{data.at[i, 'name']} - Month High: {x}, Month Low: {y}, Week High: {a}, Week Low: {b}, Day High: {m}, Day Low: {n}"
         texts.append(stock_text)
-
+        # if(i==0):
+        #     vectors0 = FAISS.from_texts(texts = texts,embedding = embed)
+        #     vectors0.save_local("admin")
+        #     texts=[]
+        # elif(i%3==0 and i>0):
+        #     vectors1= FAISS.load_local(vector_store_path, embeddings=embed, allow_dangerous_deserialization=True)
+        #     vectors1.add_texts(texts=texts)
+        #     shutil.rmtree("admin")
+        #     vectors1.save_local("admin")
+        #     texts=[]
         # Add the stock to the processed list
         processed_stocks.append(x1)
 
-    data1 = data.drop(columns=['instrument_key'])
-    data1.to_csv("updated.csv", index=False)
+    data.drop(columns=['instrument_key']).to_csv("updated.csv", index=False)
     print(texts)
 
     # Write the updated list of processed stocks to the file
     with open("processed_stocks.txt", "w") as file:
-        file.write("\n".join(processed_stocks))
+        for stock in texts:
+            file.write(stock+"\n")
 
     if not os.path.exists(vector_store_path):
-        loader = CSVLoader(file_path='updated.csv',encoding='utf-8')
+        loader = TextLoader('processed_stocks.txt')
         documents = loader.load()
-        vectors0 = FAISS.from_documents(documents, embed)
+        ts = CharacterTextSplitter(chunk_size=256,chunk_overlap=24,length_function=len,separator="\n")
+        docs = ts.split_documents(documents)
+        vectors0 = FAISS.from_documents(docs, embed)
         vectors0.save_local("admin")
+        print(vectors0.index.ntotal)
         logging.info("New vector store created with updated stock data.")
-    else:
-        vector_store = FAISS.load_local(vector_store_path, embeddings=embed, allow_dangerous_deserialization=True)
-        # vector_store.add_texts(texts)
-        vector_store.save_local(vector_store_path)
-        logging.info("Existing vector store updated with new stock data.")
+    # else:
+    #     vector_store = FAISS.load_local(vector_store_path, embeddings=embed, allow_dangerous_deserialization=True)
+    #     # vector_store.add_texts(texts)
+    #     vector_store.save_local(vector_store_path)
+    #     logging.info("Existing vector store updated with new stock data.")
 
 
 update_vector_store()
