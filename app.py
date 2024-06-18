@@ -3,6 +3,8 @@ from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from openai import OpenAI
 import os
+from langchain_experimental.agents.agent_toolkits import create_csv_agent
+from langchain.agents.agent_types import AgentType
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
@@ -10,14 +12,27 @@ import subprocess
 import time
 from apscheduler.schedulers.background import BackgroundScheduler
 import logging
+import boto3
 
 
 # from model_load import classify_question
 
 app = Flask(__name__)
+API_KEY = "sk-proj-sFmN2dibkkuuUxxrAeDPT3BlbkFJhY7iwpaB5jZLJYDWoB1C"
+
+
+llm=ChatOpenAI(temperature=0.1,openai_api_key = API_KEY)
+
+agent = create_csv_agent(
+    llm,
+    "updated.csv",
+    verbose=True,
+    agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+    allow_dangerous_code=True,
+    handle_parsing_errors=True
+)
 
 # Replace with your actual API key
-API_KEY = "sk-proj-sFmN2dibkkuuUxxrAeDPT3BlbkFJhY7iwpaB5jZLJYDWoB1C"
 embed = OpenAIEmbeddings(openai_api_key=API_KEY)
 
 folder_name = "store"
@@ -134,7 +149,8 @@ def invest(user_id, question):
         #     update_stock_data()
         #     logging.info("Stock data updated before serving the request.")
 
-        result = query_llm(vector_store_path, question)
+        # result = query_llm(vector_store_path, question)
+        result = agent.run(str(question))
         return {'question': question, 'message': result, 'status_code': 200}
     except Exception as e:
         logging.error(f"Error occurred in invest function: {str(e)}")
@@ -161,7 +177,7 @@ def query_llm(vector_store_path, question):
     embed1 = OpenAIEmbeddings(openai_api_key=API_KEY)
     vs = FAISS.load_local(str(vector_store_path),
                           embeddings=embed1, allow_dangerous_deserialization=True)
-    llm = ChatOpenAI(openai_api_key=API_KEY)
+    llm = ChatOpenAI(openai_api_key=API_KEY,temperature=0.1)
     memory = ConversationBufferMemory(
         memory_key='chat_history', return_messages=True)
     conversation_chain = ConversationalRetrievalChain.from_llm(

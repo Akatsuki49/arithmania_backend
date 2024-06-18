@@ -6,7 +6,7 @@ import shutil
 from langchain.document_loaders import TextLoader
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
-from langchain.text_splitter import CharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 import os
@@ -157,7 +157,7 @@ def update_vector_store():
     if not os.path.exists(vector_store_path):
         loader = TextLoader('processed_stocks.txt')
         documents = loader.load()
-        ts = CharacterTextSplitter(chunk_size=256,chunk_overlap=24,length_function=len,separator="\n")
+        ts = RecursiveCharacterTextSplitter(chunk_size=100,chunk_overlap=50)
         docs = ts.split_documents(documents)
         vectors0 = FAISS.from_documents(docs, embed)
         vectors0.save_local("admin")
