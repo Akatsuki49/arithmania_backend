@@ -1,11 +1,15 @@
 from flask import Flask, request, jsonify
-from langchain_community.embeddings import OpenAIEmbeddings
+# from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from openai import OpenAI
+from langchain_astradb import AstraDBVectorStore
+from groq import Groq
 import os
-from langchain_experimental.agents.agent_toolkits import create_csv_agent
-from langchain.agents.agent_types import AgentType
-from langchain.chat_models import ChatOpenAI
+from langchain_groq import ChatGroq
+from langchain_community.embeddings import HuggingFaceEmbeddings
+# from langchain_experimental.agents.agent_toolkits import create_csv_agent
+# from langchain.agents.agent_types import AgentType
+# from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 import subprocess
@@ -18,25 +22,34 @@ import boto3
 # from model_load import classify_question
 
 app = Flask(__name__)
-API_KEY = "sk-proj-sFmN2dibkkuuUxxrAeDPT3BlbkFJhY7iwpaB5jZLJYDWoB1C"
+# API_KEY = "sk-proj-sFmN2dibkkuuUxxrAeDPT3BlbkFJhY7iwpaB5jZLJYDWoB1C"
 
 
-llm=ChatOpenAI(temperature=0.1,openai_api_key = API_KEY)
+# llm=ChatOpenAI(temperature=0.1,openai_api_key = API_KEY)
 
-agent = create_csv_agent(
-    llm,
-    "updated.csv",
-    verbose=True,
-    agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-    allow_dangerous_code=True,
-    handle_parsing_errors=True
-)
+# agent = create_csv_agent(
+#     llm,
+#     "updated.csv",
+#     verbose=True,
+#     agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+#     allow_dangerous_code=True,
+#     handle_parsing_errors=True
+# )
 
-# Replace with your actual API key
-embed = OpenAIEmbeddings(openai_api_key=API_KEY)
+# # Replace with your actual API key
+# embed = OpenAIEmbeddings(openai_api_key=API_KEY)
+
+ASTRA_DB_APPLICATION_TOKEN = "AstraCS:WpfykZJsLDoLlKhPPSiUwXAZ:13a5785189fda1003cc43d7056ef67d4c09d6cd82fed033f8205b8745e5f6eaa"
+ASTRA_DB_API_ENDPOINT = "https://751276ca-4055-41e2-8319-3be1085320fc-us-east1.apps.astra.datastax.com"  # Replace with your actual endpoint
+# ASTRA_DB_KEYSPACE = "default_keyspace"
+collection_name="rai"
+# embeddings_model_name = "sentence-transformers/all-MiniLM-L6-v2"
+# embeddings = HuggingFaceEmbeddings(model_name=embeddings_model_name)
+
+
 
 folder_name = "store"
-stock_folder_name = "admin"
+stock_folder_name = "processed_stocks.txt"
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -51,6 +64,9 @@ def update_stock_data():
 
 @app.route('/update_transactions', methods=['POST'])
 def update_transactions():
+    
+    embeddings_model_name = "sentence-transformers/all-MiniLM-L6-v2"
+    embeddings = HuggingFaceEmbeddings(model_name=embeddings_model_name)
     try:
         user_id = request.form.get('user_id')
         if user_id is None:
@@ -78,16 +94,16 @@ def update_transactions():
             return jsonify({'error': 'description is required'}), 400
 
         transaction_text = f"{amount} {transaction_type} {category} {description}"
-        embedding = embed.embed_query(transaction_text)
+        embedding = embeddings.embed_query(transaction_text)
 
         if not os.path.exists(vector_store_path):
             vector_store = FAISS.from_texts(
-                texts=[transaction_text], embedding=embed)
+                texts=[transaction_text], embedding=embeddings)
             vector_store.save_local(vector_store_path)
         else:
             print("here")
             vector_store = FAISS.load_local(
-                vector_store_path, embeddings=embed, allow_dangerous_deserialization=True)
+                vector_store_path, embeddings=embeddings, allow_dangerous_deserialization=True)
             vector_store.add_texts([transaction_text], embeddings=[embedding])
             vector_store.save_local(vector_store_path)
 
@@ -108,7 +124,7 @@ def query():
         if question is None:
             return jsonify({'error': 'question is required'}), 400
         # classification = classify_question(question)
-        classification = "stock market"
+        classification = "financial education"
         # classification = "personal budgeting"
         # classification = "financial education"
         # Make a POST request to the desired endpoint based on classification
@@ -140,6 +156,14 @@ def query():
 
 def invest(user_id, question):
     try:
+        embeddings_model_name = "sentence-transformers/all-MiniLM-L6-v2"
+        embeddings = HuggingFaceEmbeddings(model_name=embeddings_model_name)
+        vstore = AstraDBVectorStore(
+        embedding=embeddings,
+        collection_name=collection_name,
+        token=ASTRA_DB_APPLICATION_TOKEN,
+        api_endpoint=ASTRA_DB_API_ENDPOINT,
+        )
         vector_store_path = stock_folder_name
         last_update_time = os.path.getmtime(vector_store_path)
         current_time = time.time()
@@ -150,8 +174,25 @@ def invest(user_id, question):
         #     logging.info("Stock data updated before serving the request.")
 
         # result = query_llm(vector_store_path, question)
-        result = agent.run(str(question))
-        return {'question': question, 'message': result, 'status_code': 200}
+        result = vstore.similarity_search(str(question),k=1)
+        for res in result:
+            x1 = res.page_content
+        client = Groq(
+            api_key="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",
+        )
+
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"{x1}+\n\n\n+{question}+\n\n\n+Give a short and precise answer no more than 100 words in one paragraph.",
+                }
+            ],
+            model="llama3-70b-8192",
+        )
+
+        res1 = chat_completion.choices[0].message.content
+        return {'question': question, 'message': res1, 'status_code': 200}
     except Exception as e:
         logging.error(f"Error occurred in invest function: {str(e)}")
         return {'error': f"An error occurred: {str(e)}", 'status_code': 500}
@@ -174,10 +215,13 @@ def personal_budgeting(user_id, question):
 
 def query_llm(vector_store_path, question):
     print(vector_store_path)
-    embed1 = OpenAIEmbeddings(openai_api_key=API_KEY)
+    embeddings_model_name = "sentence-transformers/all-MiniLM-L6-v2"
+    embeddings = HuggingFaceEmbeddings(model_name=embeddings_model_name)
+    # embed1 = OpenAIEmbeddings(openai_api_key=API_KEY)
     vs = FAISS.load_local(str(vector_store_path),
-                          embeddings=embed1, allow_dangerous_deserialization=True)
-    llm = ChatOpenAI(openai_api_key=API_KEY,temperature=0.1)
+                          embeddings=embeddings, allow_dangerous_deserialization=True)
+    # llm = ChatOpenAI(openai_api_key=API_KEY,temperature=0.1)
+    llm = ChatGroq(groq_api_key = "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", model_name = "llama3-70b-8192")
     memory = ConversationBufferMemory(
         memory_key='chat_history', return_messages=True)
     conversation_chain = ConversationalRetrievalChain.from_llm(
@@ -192,23 +236,29 @@ def query_llm(vector_store_path, question):
 # @app.route('/financial_education')
 def financial_education(user_id, question):
     try:
-        prompt = f"Given this message explain in a simple and understandable way: {question}"
+        # prompt = f""
 
-        client = OpenAI(api_key=API_KEY)
-        response = client.chat.completions.create(
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=140,
-            model="gpt-3.5-turbo",
-            temperature=0.7,
+        client = Groq(
+            api_key="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",
         )
 
-        if response and response.choices:
-            generated_text = response.choices[0].message.content
-            return {'question': question, 'message': generated_text, 'status_code': 200}
-        else:
-            return {'error': 'No response from the model', 'status_code': 500}
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"Assume that you are a Financial Advisor in India. Given this message explain in a simple and understandable way not more than 100 words:+\n\n+{question}",
+                }
+            ],
+            model="mixtral-8x7b-32768",
+            temperature=0.1
+        )
+
+
+        # if chat_completion and chat_completion.choices:
+        res12 = chat_completion.choices[0].message.content
+        return {'question': question, 'message': res12, 'status_code': 200}
+        # else:
+            # return {'error': 'No response from the model', 'status_code': 500}
 
     except Exception as e:
         return {'error': f"An error occurred: {str(e)}", 'status_code': 500}
