@@ -1,5 +1,4 @@
 from flask import Flask, request, jsonify
-# from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from openai import OpenAI
 from langchain_astradb import AstraDBVectorStore
@@ -7,9 +6,6 @@ from groq import Groq
 import os
 from langchain_groq import ChatGroq
 from langchain_community.embeddings import HuggingFaceEmbeddings
-# from langchain_experimental.agents.agent_toolkits import create_csv_agent
-# from langchain.agents.agent_types import AgentType
-# from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 import subprocess
@@ -18,25 +14,11 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import logging
 import boto3
 
-
+GROQ_API_KEY = "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"
 # from model_load import classify_question
 
 app = Flask(__name__)
 # API_KEY = "sk-proj-sFmN2dibkkuuUxxrAeDPT3BlbkFJhY7iwpaB5jZLJYDWoB1C"
-
-
-# llm=ChatOpenAI(temperature=0.1,openai_api_key = API_KEY)
-
-# agent = create_csv_agent(
-#     llm,
-#     "updated.csv",
-#     verbose=True,
-#     agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-#     allow_dangerous_code=True,
-#     handle_parsing_errors=True
-# )
-
-# # Replace with your actual API key
 # embed = OpenAIEmbeddings(openai_api_key=API_KEY)
 
 ASTRA_DB_APPLICATION_TOKEN = "AstraCS:WpfykZJsLDoLlKhPPSiUwXAZ:13a5785189fda1003cc43d7056ef67d4c09d6cd82fed033f8205b8745e5f6eaa"
@@ -60,6 +42,30 @@ def update_stock_data():
     except Exception as e:
         logging.error(f"Error updating stock data: {str(e)}")
 
+
+def classify_question(question):
+    client = Groq(
+        api_key=GROQ_API_KEY,
+    )
+
+    chat_completion = client.chat.completions.create(
+        messages=[
+            {
+                "role": "user",
+                "content": f"{question}+\n\n\n+Classify this question whether if this is Financial Education, Stock Market Related or Personal Budgeting",
+            }
+        ],
+        model="llama3-70b-8192",
+    )
+
+    result = chat_completion.choices[0].message.content
+    result = result.lower()
+    if("financial education" in result):
+        return "financial education"
+    elif("stock market related" in result):
+        return "stock market"
+    elif("personal budgeting" in result):
+        return "personal budgeting"  
 
 
 @app.route('/update_transactions', methods=['POST'])
@@ -123,12 +129,8 @@ def query():
         question = request.form.get('question')
         if question is None:
             return jsonify({'error': 'question is required'}), 400
-        # classification = classify_question(question)
-        classification = "financial education"
-        # classification = "personal budgeting"
+        classification = classify_question(question)
         # classification = "financial education"
-        # Make a POST request to the desired endpoint based on classification
-        # classification = "personal budgeting"
         if classification == "stock market":
             response = invest(user_id, question)
         elif classification == "personal budgeting":
@@ -148,11 +150,6 @@ def query():
     except Exception as e:
         return jsonify({'error': f"An error occurred: {str(e)}"}), 500
 
-
-# @app.route('/investments')
-# def invest(user_id, question):
-#     answer1 = answgen(question)
-#     return {'question': question, 'message': answer1, 'status_code': 200}
 
 def invest(user_id, question):
     try:
@@ -178,7 +175,7 @@ def invest(user_id, question):
         for res in result:
             x1 = res.page_content
         client = Groq(
-            api_key="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",
+            api_key=GROQ_API_KEY,
         )
 
         chat_completion = client.chat.completions.create(
@@ -221,7 +218,7 @@ def query_llm(vector_store_path, question):
     vs = FAISS.load_local(str(vector_store_path),
                           embeddings=embeddings, allow_dangerous_deserialization=True)
     # llm = ChatOpenAI(openai_api_key=API_KEY,temperature=0.1)
-    llm = ChatGroq(groq_api_key = "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", model_name = "llama3-70b-8192")
+    llm = ChatGroq(groq_api_key = GROQ_API_KEY, model_name = "llama3-70b-8192")
     memory = ConversationBufferMemory(
         memory_key='chat_history', return_messages=True)
     conversation_chain = ConversationalRetrievalChain.from_llm(
@@ -233,13 +230,10 @@ def query_llm(vector_store_path, question):
     return result
 
 
-# @app.route('/financial_education')
 def financial_education(user_id, question):
     try:
-        # prompt = f""
-
         client = Groq(
-            api_key="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",
+            api_key=GROQ_API_KEY,
         )
 
         chat_completion = client.chat.completions.create(
