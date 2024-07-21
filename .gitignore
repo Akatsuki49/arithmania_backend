@@ -22,4 +22,4 @@ model1/
 model1-tokenizer/
 store/
 apiget.py
-answgen.py
+investment_gen.py
